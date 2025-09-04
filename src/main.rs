@@ -1,10 +1,12 @@
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use std::fs;
+use std::io;
 use std::path::PathBuf;
 
 ///simple cli tool
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(name = " TODO CLI")]
 #[command(about = " MAnage your todo from the terminal")]
 
@@ -13,7 +15,7 @@ struct Cli {
     command: Commands,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 enum Commands {
     //Add a task
     Add { task: String },
@@ -35,62 +37,85 @@ struct Task {
 }
 
 fn main() {
+    if let Err(e) = run() {
+        eprintln!("error: {e}");
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
-    //path to storee todo
+    //Path to Store todo
     let path = PathBuf::from("tasks.json");
 
-    //load existing task  or empmty list if missing
-    let mut tasks: Vec<Task> = load_tasks(&path);
+    //Load existing task if available
+    let mut tasks = load_task(&path)?;
 
     match cli.command {
         Commands::Add { task } => {
-            task.push(Task {
+            tasks.push(Task {
                 description: task,
-                done: :false,
+                done: false,
             });
-            save_tasks(&path, &task);
-            println!("Task Added");
+            save_tasks(&path, &tasks)?;
+            println!("Task added!");
         }
-
         Commands::List => {
             if tasks.is_empty() {
-                println!("No Task");
+                println!("No tasks yet!");
             } else {
                 for (i, task) in tasks.iter().enumerate() {
                     let status = if task.done { "[x]" } else { "[ ]" };
-                    println!("{} {} {}", i, status, task.description);
+                    println!("{i} {status} {}", task.description);
                 }
             }
         }
-
         Commands::Done { index } => {
-            if index < tasks.len() {
-                tasks[index].done = true;
-                save_tasks(&path, &tasks);
-                println!("Task {} marked as done", index);
-            } else {
-                eprintln!("Invalid index: {}", index);
+            match tasks.get_mut(index) {
+                Some(t) => {
+                    t.done = true;
+                    save_tasks(&path, &tasks)?;
+                    println!("Task {index} marked as done!");
+                }
+                None => {
+                    // return an error so we exit non-zero and show a friendly message
+                    return Err(format!(
+                        "Invalid index: {index} ({} tasks available)",
+                        tasks.len()
+                    )
+                    .into());
+                }
             }
         }
-
         Commands::Clear => {
             tasks.clear();
-            save_task(&path, &tasks);
-            println!("All tasked Cleared");
+            save_tasks(&path, &tasks)?;
+            println!("All tasks cleared!");
         }
     }
+
+    Ok(())
 }
 
-fn load_tasks(path: &PathBuf) -> Vec<Task> {
+fn load_tasks(path: &PathBuf) -> Result<Vec<Task>, Box<dyn Error>> {
     if !path.exists() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
-    let data = fs::read_to_string(path).unwrap_or_else(|_| "[]".to_string());
-    serde_json::from_str(&data).unwrap_or_else(|_| Vec::new())
+
+    let data = fs::read_to_string(path).map_err(|e| io_error("reading tasks file", e))?;
+    let tasks: Vec<Task> = serde_json::from_str(&data)
+        .map_err(|e| format!("parsing JSON in {}: {e}", path.display()))?;
+    Ok(tasks)
 }
 
-fn save_tasks(path: &PathBuf, tasks: &Vec<Task>) {
-    let data = serde_json::to_string_pretty(tasks).expect("Failed to serialize tasks");
-    fs::write(path, data).expect("Failed to save tasks");
+fn save_tasks(path: &PathBuf, tasks: &[Task]) -> Result<(), Box<dyn Error>> {
+    let data = serde_json::to_string_pretty(tasks)
+        .map_err(|e| format!("serializing tasks to JSON: {e}"))?;
+    fs::write(path, data).map_err(|e| io_error("writing tasks file", e))?;
+    Ok(())
+}
+
+fn io_error(ctx: &str, e: io::Error) -> Box<dyn Error> {
+    format!("I/O error while {ctx}: {e}").into()
 }
