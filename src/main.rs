@@ -11,7 +11,7 @@ use std::path::PathBuf;
 #[command(about = " MAnage your todo from the terminal")]
 
 struct Cli {
-    #[command(Subcommand)]
+    #[clap(subcommand)]
     command: Commands,
 }
 
@@ -50,7 +50,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let path = PathBuf::from("tasks.json");
 
     //Load existing task if available
-    let mut tasks = load_task(&path)?;
+    let mut tasks = load_tasks(&path)?;
 
     match cli.command {
         Commands::Add { task } => {
