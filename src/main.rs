@@ -14,8 +14,20 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    Add { description: String },
+    Add {
+        description: String,
+    },
     List,
+    Edit {
+        id: usize,
+        #[arg(long)]
+        description: Option<String>,
+        #[arg(long)]
+        due: Option<String>,
+    },
+    Complete {
+        id: usize,
+    },
     // Edit, Clear, etc. will come later
 }
 
@@ -26,8 +38,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::Add { description } => commands::add_task(&path, description)?,
         Commands::List => commands::list_tasks(&path)?,
+        Commands::Edit {
+            id,
+            description,
+            due,
+        } => commands::edit_task(&path, id, description, due)?,
+        Commands::Complete { id } => commands::complete_task(&path, id)?,
     }
 
     Ok(())
 }
-

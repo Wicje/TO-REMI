@@ -24,7 +24,7 @@ impl Task {
     }
 
     pub fn edit(&mut self, new_desc: Option<String>, new_due: Option<NaiveDate>) {
-        if let some(desc) = new_desc {
+        if let Some(desc) = new_desc {
             self.description = desc;
         }
 
