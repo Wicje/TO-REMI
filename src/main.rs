@@ -1,8 +1,11 @@
 mod commands;
+mod error;
 mod storage;
 mod task;
 
+use crate::TaskResult;
 use clap::{Parser, Subcommand};
+use error::TaskError;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -28,10 +31,16 @@ enum Commands {
     Complete {
         id: usize,
     },
-    // Edit, Clear, etc. will come later
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn run() -> TaskResult<()> {
     let cli = Cli::parse();
     let path = PathBuf::from("tasks.json");
 

@@ -1,6 +1,8 @@
 [
   {
-    "description": "Buy milk",
-    "done": false
+    "id": 1,
+    "description": "Test task",
+    "completed": false,
+    "due_date": null
   }
 ]

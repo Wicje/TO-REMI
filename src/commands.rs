@@ -1,23 +1,37 @@
 use crate::{
     storage::{load_tasks, save_tasks},
-    task::Task,
+    task::{Task, TaskError, TaskResult},
 };
 use chrono::NaiveDate;
 use std::path::PathBuf;
 
-//Add TAsk
-pub fn add_task(path: &PathBuf, description: String) -> Result<(), Box<dyn std::error::Error>> {
+/// Add Task
+pub fn add_task(path: &PathBuf, description: String) -> TaskResult<()> {
+    if description.trim().is_empty() {
+        return Err(TaskError::InvalidInput(
+            "Description cannot be empty".into(),
+        ));
+    }
+
     let mut tasks = load_tasks(path)?;
     let id = tasks.len() + 1;
+
     tasks.push(Task::new(id, description));
     save_tasks(path, &tasks)?;
-    println!("Task Added");
+
+    println!("Task {} added.", id);
     Ok(())
 }
 
-//List TAsk
-pub fn list_tasks(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+/// List Tasks
+pub fn list_tasks(path: &PathBuf) -> TaskResult<()> {
     let tasks = load_tasks(path)?;
+
+    if tasks.is_empty() {
+        println!("No tasks found.");
+        return Ok(());
+    }
+
     for task in tasks {
         println!(
             "[{}] {} - {}",
@@ -26,33 +40,57 @@ pub fn list_tasks(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
             task.description
         );
     }
+
     Ok(())
 }
 
-//Edit task
+/// Edit Task
 pub fn edit_task(
     path: &PathBuf,
     id: usize,
     new_desc: Option<String>,
     new_due: Option<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> TaskResult<()> {
     let mut tasks = load_tasks(path)?;
 
-    if let Some(task) = tasks.iter_mut().find(|t| t.id == id) {
-        //Parse due date if provided
-        let parsed_due = match new_due {
-            Some(due_str) => Some(NaiveDate::parse_from_str(&due_str, "%Y-%m-%d")?),
-            None => None,
-        };
+    let task = tasks
+        .iter_mut()
+        .find(|t| t.id == id)
+        .ok_or(TaskError::TaskNotFound(id))?;
 
-        task.edit(new_desc, parsed_due);
-        save_tasks(path, &tasks)?;
-        println!("Task {} updated", id);
+    // Parse due date if provided
+    let parsed_due = if let Some(due_str) = new_due {
+        Some(
+            NaiveDate::parse_from_str(&due_str, "%Y-%m-%d")
+                .map_err(|e| TaskError::InvalidInput(format!("Invalid date: {}", e)))?,
+        )
     } else {
-        println!("Task {} not found", id);
-    }
+        None
+    };
+
+    task.edit(new_desc, parsed_due);
+
+    save_tasks(path, &tasks)?;
+    println!("Task {} updated.", id);
 
     Ok(())
 }
 
-//
+///Completed
+pub fn complete_task(path: &PathBuf, id: usize) -> TaskResult<()> {
+    let mut tasks = load_tasks(path)?;
+
+    let task = tasks
+        .iter_mut()
+        .find(|t| t.id == id)
+        .ok_or(TaskError::TaskNotFound(id))?;
+
+    //Mark the found task
+    task.complete();
+    //Savethe task
+    save_tasks(path, &tasks)?;
+    println!("Task {} completed", id);
+
+    Ok(())
+}
+
