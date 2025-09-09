@@ -3,9 +3,8 @@ mod error;
 mod storage;
 mod task;
 
-use crate::TaskResult;
+use crate::error::{TaskError, TaskResult};
 use clap::{Parser, Subcommand};
-use error::TaskError;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -34,8 +33,25 @@ enum Commands {
 }
 
 fn main() {
+    // Run CLI and handle errors gracefully
     if let Err(e) = run() {
-        eprintln!("Error: {}", e);
+        match e {
+            TaskError::TaskNotFound(id) => {
+                eprintln!("❌ Task with id {} does not exist.", id);
+            }
+            TaskError::InvalidInput(msg) => {
+                eprintln!("⚠️  Invalid input: {}", msg);
+            }
+            TaskError::IoError(io) => {
+                eprintln!("💾 IO Error: {}. Check your file permissions or disk.", io);
+            }
+            TaskError::JsonError(json) => {
+                eprintln!(
+                    "🛠️  JSON Error: {}. Maybe your tasks.json is corrupted.",
+                    json
+                );
+            }
+        }
         std::process::exit(1);
     }
 }
