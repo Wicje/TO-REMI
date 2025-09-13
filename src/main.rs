@@ -2,13 +2,15 @@ mod commands;
 mod error;
 mod storage;
 mod task;
+mod config;
+
 
 use crate::error::{TaskError, TaskResult};
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use tracing_subscriber;
 
 #[derive(Parser, Debug)]
-#[command(name = "Todo CLI", about = "Manage your todos from the terminal")]
+#[command(name = "ToRemi", about = "Manage your todos from the terminal")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -58,7 +60,7 @@ fn main() {
 
 fn run() -> TaskResult<()> {
     let cli = Cli::parse();
-    let path = PathBuf::from("tasks.json");
+    let path = crate::config::default_data_file();
 
     match cli.command {
         Commands::Add { description } => commands::add_task(&path, description)?,
